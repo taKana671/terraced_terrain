@@ -1,12 +1,16 @@
 import array
 import random
+import math
 
+import numpy as np
 from panda3d.core import Vec3
 
 from .terraced_terrain import SphericalTerracedTerrainMixin
-from .themes import themes
+from .themes import themes, Island
 from noise import SimplexNoise, PerlinNoise, CellularNoise, Fractal3D
 from shapes import Cubesphere
+
+from mask.radial_gradient_generator import RadialGradientMask
 
 
 class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
@@ -40,9 +44,10 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
         super().__init__(max_depth, terrain_scale)
         self.noise_scale = noise_scale
 
-        if (theme_name := theme.lower()) == 'island':
-            raise ValueError("Island is only for flat terraced terrain at this time.")
-        self.theme = themes.get(theme_name)
+        # if (theme_name := theme.lower()) == 'island':
+        #     raise ValueError("Island is only for flat terraced terrain at this time.")
+        # self.theme = themes.get(theme_name)
+        self.theme = themes.get(theme.lower())
 
         self.noise = Fractal3D(
             noise_gen=noise_gen,
@@ -91,16 +96,65 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
             octaves=octaves,
             **kwargs)
 
+    def convert_to_lonlat(self, radius, x, y, z):
+        """Convert from cartesian coordinates to longitude/latitude.
+        """
+
+        lat = np.arcsin(np.clip(z / radius, -1, 1))        
+
+        lon = np.arctan2(y, x)
+        return lat, lon
+
+    def get_distance(self, radius, lat1, lon1, lat2, lon2):
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+
+        # a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2.0) ** 2
+        # c = 2 * np.arcsin(a ** 0.5)
+        # dist = radius * c
+        # return dist
+
+        dist = np.sin(lat1) * np.sin(lat2) + np.cos(lat1) * np.cos(lat2) * np.cos(dlon)
+        return radius * math.acos(min(max(dist, -1.0), 1.0))
+
+
+    def get_gradient(self, radius, vert, lat1, lon1, max_length=180, gradient_size=2):
+        lat, lon = self.convert_to_lonlat(radius, *vert)
+        dist = self.get_distance(radius, lat1, lon1, lat, lon)
+        dist_to_center = dist / (2 ** 0.5 * max_length / gradient_size)
+        # dist_to_center = dist / (2 ** 0.5 * 100000)
+
+        if dist_to_center >= 1:
+            return 1
+
+        return 1 * dist_to_center
+
     def create_terraced_terrain(self, vertex_cnt, vdata_values, prim_indices):
         offset = Vec3(*[random.uniform(-1000, 1000) for _ in range(3)])
+
+        if self.theme == Island:
+            pt = [0.57735027, -0.57735027, 0.57735027]
+            cent = Vec3(pt[0] + offset.x, pt[1] + offset.y, pt[2] + offset.z)
+            radius = (cent.x ** 2 + cent.y ** 2 + cent.z ** 2) ** 0.5
+            lat1, lon1 = self.convert_to_lonlat(radius, *cent)
+
 
         for subdiv_face in self.generate_triangles():
             vertices = []
             for vertex in subdiv_face:
-                scaled_verts = (vertex + offset) * self.noise_scale
+                scaled_vert = (vertex + offset) * self.noise_scale
+                h = self.noise.noise_octaves(*scaled_vert)
 
-                if (h := self.noise.noise_octaves(*scaled_verts)) < self.theme.LAYER_01.threshold:
-                    h = self.theme.LAYER_01.threshold
+                if self.theme == Island:
+                    grad = self.get_gradient(radius, scaled_vert, lat1, lon1)
+                    h = 0.02 if grad >= h else h - grad
+                else:
+                    if h < self.theme.LAYER_01.threshold:
+                        h = self.theme.LAYER_01.threshold
+
+                # scaled_vert = (vertex + offset) * self.noise_scale
+                # if (h := self.noise.noise_octaves(*scaled_vert)) < self.theme.LAYER_01.threshold:
+                #     h = self.theme.LAYER_01.threshold
 
                 normalized_vert = vertex.normalized()
                 vert = normalized_vert * (1 + h)
