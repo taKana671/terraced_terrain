@@ -96,48 +96,31 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
             octaves=octaves,
             **kwargs)
 
-    def convert_to_lonlat(self, radius, x, y, z):
-        """Convert from cartesian coordinates to longitude/latitude.
-        """
-
-        lat = np.arcsin(np.clip(z / radius, -1, 1))        
-
-        lon = np.arctan2(y, x)
-        return lat, lon
-
-    def get_distance(self, radius, lat1, lon1, lat2, lon2):
-        dlon = lon2 - lon1
-        dlat = lat2 - lat1
-
-        # a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2.0) ** 2
-        # c = 2 * np.arcsin(a ** 0.5)
-        # dist = radius * c
-        # return dist
-
-        dist = np.sin(lat1) * np.sin(lat2) + np.cos(lat1) * np.cos(lat2) * np.cos(dlon)
-        return radius * math.acos(min(max(dist, -1.0), 1.0))
-
-
-    def get_gradient(self, radius, vert, lat1, lon1, max_length=180, gradient_size=2):
-        lat, lon = self.convert_to_lonlat(radius, *vert)
-        dist = self.get_distance(radius, lat1, lon1, lat, lon)
-        dist_to_center = dist / (2 ** 0.5 * max_length / gradient_size)
-        # dist_to_center = dist / (2 ** 0.5 * 100000)
+    def get_gradient(self, vert, center, max_length=30, gradient_size=2):
+        norm = ((vert.x - center.x) ** 2 + (vert.y - center.y) ** 2 + (vert.z - center.z) ** 2) ** 0.5
+        dist_to_center = norm / (2 ** 0.5 * max_length / gradient_size)
 
         if dist_to_center >= 1:
             return 1
 
         return 1 * dist_to_center
 
+        # each center of 6 faces
+        # center:  LVecBase3f(-0.57735025, 0, 0)
+        # center:  LVecBase3f(0, -0.57735025, 0)
+        # center:  LVecBase3f(0, 0, 0.57735025)
+        # center:  LVecBase3f(0, 0.57735025, 0)
+        # center:  LVecBase3f(0.57735025, 0, 0)
+        # center:  LVecBase3f(0, 0, -0.57735025)
+
+
     def create_terraced_terrain(self, vertex_cnt, vdata_values, prim_indices):
         offset = Vec3(*[random.uniform(-1000, 1000) for _ in range(3)])
 
         if self.theme == Island:
-            pt = [0.57735027, -0.57735027, 0.57735027]
-            cent = Vec3(pt[0] + offset.x, pt[1] + offset.y, pt[2] + offset.z)
-            radius = (cent.x ** 2 + cent.y ** 2 + cent.z ** 2) ** 0.5
-            lat1, lon1 = self.convert_to_lonlat(radius, *cent)
-
+            # pt = [-0.57735025, -0.57735025, 0.57735025]
+            pt = Vec3(0, 0, 0.57735025)
+            center = (pt + offset) * self.noise_scale
 
         for subdiv_face in self.generate_triangles():
             vertices = []
@@ -145,16 +128,25 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
                 scaled_vert = (vertex + offset) * self.noise_scale
                 h = self.noise.noise_octaves(*scaled_vert)
 
+                
                 if self.theme == Island:
-                    grad = self.get_gradient(radius, scaled_vert, lat1, lon1)
-                    h = 0.02 if grad >= h else h - grad
+                    # ノイズ生成メソッドの中で、0.5を足しているため、ここでは0.5の調整を行う。
+                    if vertex.z > 0:
+                        if (grad := self.get_gradient(scaled_vert, center)) >= h - 0.5:
+                            h = 0.52  # 0.02
+                        else:
+                            h = h - grad
+                    else:
+                        h = 0.52  # 0.02
+                        # print(h, grad)
+                        # h = 0.02 if grad >= h else h - grad
+
+                    
+                    # print(grad, h)
+                    
                 else:
                     if h < self.theme.LAYER_01.threshold:
                         h = self.theme.LAYER_01.threshold
-
-                # scaled_vert = (vertex + offset) * self.noise_scale
-                # if (h := self.noise.noise_octaves(*scaled_vert)) < self.theme.LAYER_01.threshold:
-                #     h = self.theme.LAYER_01.threshold
 
                 normalized_vert = vertex.normalized()
                 vert = normalized_vert * (1 + h)
