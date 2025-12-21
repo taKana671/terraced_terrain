@@ -1,7 +1,7 @@
 import array
 import random
 
-from panda3d.core import Vec3, Point3
+from panda3d.core import Vec3
 
 from .gradient_3d import GradientSphereNESW, GradientSphereNWSE
 from .terraced_terrain import SphericalTerracedTerrainMixin
@@ -125,20 +125,9 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
     def create_mask(self):
         mask = GradientSphereNESW if random.random() >= 0.5 else GradientSphereNWSE
 
-        if mask == GradientSphereNESW:
-            # print('use GradientSphereNESW')
-            n_pt = Point3(1, 1, 1)
-            s_pt = Point3(-1, -1, -1)
-        else:
-            # print('use GradientSphereNWSE')
-            n_pt = Point3(-1, 1, 1)
-            s_pt = Point3(1, -1, -1)
-
         return mask(
             vert_value=Cubesphere.vertex_value,
-            bound=0.57,
-            n_center=n_pt * Cubesphere.vertex_value,
-            s_center=s_pt * Cubesphere.vertex_value,
+            bound=0.57
         )
 
     def get_geom_node(self):

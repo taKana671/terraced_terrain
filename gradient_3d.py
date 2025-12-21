@@ -1,5 +1,7 @@
 import math
 
+from panda3d.core import Point3
+
 
 class Gradient3D:
 
@@ -19,12 +21,12 @@ class Gradient3D:
 
 class GradientSphere(Gradient3D):
 
-    def __init__(self, vert_value, bound, n_center, s_center, max_length=100, gradient_size=4):
+    def __init__(self, vert_value, bound, n_center, s_center, max_length, gradient_size):
         super().__init__(max_length, gradient_size)
         self.vert_value = vert_value
         self.bound = bound
-        self.n_center = n_center
-        self.s_center = s_center
+        self.n_center = n_center * vert_value
+        self.s_center = s_center * vert_value
 
     def get_center(self, vert):
         center = None
@@ -44,8 +46,14 @@ class GradientSphere(Gradient3D):
 
 class GradientSphereNESW(GradientSphere):
 
-    def __init__(self, vert_value, bound, n_center, s_center, max_length=100, gradient_size=4):
-        super().__init__(vert_value, bound, n_center, s_center, max_length, gradient_size)
+    def __init__(self, vert_value, bound, max_length=100, gradient_size=4):
+        super().__init__(
+            vert_value=vert_value,
+            bound=bound,
+            n_center=Point3(1, 1, 1),
+            s_center=Point3(-1, -1, -1),
+            max_length=max_length,
+            gradient_size=gradient_size)
 
     def north_or_south(self, vert):
         # front
@@ -83,8 +91,14 @@ class GradientSphereNESW(GradientSphere):
 
 class GradientSphereNWSE(GradientSphere):
 
-    def __init__(self, vert_value, bound, n_center, s_center, max_length=100, gradient_size=4):
-        super().__init__(vert_value, bound, n_center, s_center, max_length, gradient_size)
+    def __init__(self, vert_value, bound, max_length=100, gradient_size=4):
+        super().__init__(
+            vert_value=vert_value,
+            bound=bound,
+            n_center=Point3(-1, 1, 1),
+            s_center=Point3(1, -1, -1),
+            max_length=max_length,
+            gradient_size=gradient_size)
 
     def north_or_south(self, vert):
         # front
