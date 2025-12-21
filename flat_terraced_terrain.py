@@ -13,7 +13,7 @@ from shapes.spherical_polyhedron import TriangleGenerator
 
 
 class FlatTerracedTerrain(FlatTerracedTerrainMixin, TriangleGenerator):
-    """A class to generate a terraced terrain.
+    """A class to generate a terraced terrain.f
         Args:
             noise (func): Function that generates noise.
             noise_scale (float): The smaller this value is, the more sparse the noise becomes.

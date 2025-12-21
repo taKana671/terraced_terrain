@@ -1,16 +1,13 @@
 import array
 import random
-import math
 
-import numpy as np
-from panda3d.core import Vec3
+from panda3d.core import Vec3, Point3
 
+from .gradient_3d import GradientSphereNESW, GradientSphereNWSE
 from .terraced_terrain import SphericalTerracedTerrainMixin
 from .themes import themes, Island
 from noise import SimplexNoise, PerlinNoise, CellularNoise, Fractal3D
 from shapes import Cubesphere
-
-from mask.radial_gradient_generator import RadialGradientMask
 
 
 class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
@@ -43,10 +40,6 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
                  ):
         super().__init__(max_depth, terrain_scale)
         self.noise_scale = noise_scale
-
-        # if (theme_name := theme.lower()) == 'island':
-        #     raise ValueError("Island is only for flat terraced terrain at this time.")
-        # self.theme = themes.get(theme_name)
         self.theme = themes.get(theme.lower())
 
         self.noise = Fractal3D(
@@ -96,31 +89,12 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
             octaves=octaves,
             **kwargs)
 
-    def get_gradient(self, vert, center, max_length=30, gradient_size=2):
-        norm = ((vert.x - center.x) ** 2 + (vert.y - center.y) ** 2 + (vert.z - center.z) ** 2) ** 0.5
-        dist_to_center = norm / (2 ** 0.5 * max_length / gradient_size)
-
-        if dist_to_center >= 1:
-            return 1
-
-        return 1 * dist_to_center
-
-        # each center of 6 faces
-        # center:  LVecBase3f(-0.57735025, 0, 0)
-        # center:  LVecBase3f(0, -0.57735025, 0)
-        # center:  LVecBase3f(0, 0, 0.57735025)
-        # center:  LVecBase3f(0, 0.57735025, 0)
-        # center:  LVecBase3f(0.57735025, 0, 0)
-        # center:  LVecBase3f(0, 0, -0.57735025)
-
-
     def create_terraced_terrain(self, vertex_cnt, vdata_values, prim_indices):
         offset = Vec3(*[random.uniform(-1000, 1000) for _ in range(3)])
 
-        if self.theme == Island:
-            # pt = [-0.57735025, -0.57735025, 0.57735025]
-            pt = Vec3(0, 0, 0.57735025)
-            center = (pt + offset) * self.noise_scale
+        if self.mask:
+            self.mask.n_center = (self.mask.n_center + offset) * self.noise_scale
+            self.mask.s_center = (self.mask.s_center + offset) * self.noise_scale
 
         for subdiv_face in self.generate_triangles():
             vertices = []
@@ -128,22 +102,13 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
                 scaled_vert = (vertex + offset) * self.noise_scale
                 h = self.noise.noise_octaves(*scaled_vert)
 
-                
-                if self.theme == Island:
-                    # ノイズ生成メソッドの中で、0.5を足しているため、ここでは0.5の調整を行う。
-                    if vertex.z > 0:
-                        if (grad := self.get_gradient(scaled_vert, center)) >= h - 0.5:
-                            h = 0.52  # 0.02
-                        else:
-                            h = h - grad
+                if self.mask:
+                    # Since 0.5 is added within the noise generation method, an adjustment of 0.5 is made here.
+                    if (center := self.mask.get_center(vertex)) and \
+                            (grad := self.mask.get_gradient(scaled_vert, center)) < h - 0.5:
+                        h -= grad
                     else:
-                        h = 0.52  # 0.02
-                        # print(h, grad)
-                        # h = 0.02 if grad >= h else h - grad
-
-                    
-                    # print(grad, h)
-                    
+                        h = 0.52
                 else:
                     if h < self.theme.LAYER_01.threshold:
                         h = self.theme.LAYER_01.threshold
@@ -157,7 +122,28 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
 
         return vertex_cnt
 
+    def create_mask(self):
+        mask = GradientSphereNESW if random.random() >= 0.5 else GradientSphereNWSE
+
+        if mask == GradientSphereNESW:
+            # print('use GradientSphereNESW')
+            n_pt = Point3(1, 1, 1)
+            s_pt = Point3(-1, -1, -1)
+        else:
+            # print('use GradientSphereNWSE')
+            n_pt = Point3(-1, 1, 1)
+            s_pt = Point3(1, -1, -1)
+
+        return mask(
+            vert_value=Cubesphere.vertex_value,
+            bound=0.57,
+            n_center=n_pt * Cubesphere.vertex_value,
+            s_center=s_pt * Cubesphere.vertex_value,
+        )
+
     def get_geom_node(self):
+        self.mask = self.create_mask() if self.theme == Island else None
+
         vdata_values = array.array('f', [])
         prim_indices = array.array('I', [])
         vertex_cnt = 0
