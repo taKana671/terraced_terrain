@@ -5,7 +5,8 @@ from panda3d.core import Vec3
 
 from .gradient_3d import GradientSphereNESW, GradientSphereNWSE
 from .terraced_terrain import SphericalTerracedTerrainMixin
-from .themes import themes, Island
+from .themes.themes import themes_sphere
+from .themes.sphere_themes import Island
 from noise import SimplexNoise, PerlinNoise, CellularNoise, Fractal3D
 from shapes import Cubesphere
 
@@ -40,7 +41,7 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
                  ):
         super().__init__(max_depth, terrain_scale)
         self.noise_scale = noise_scale
-        self.theme = themes.get(theme.lower())
+        self.theme = themes_sphere.get(theme.lower())
 
         self.noise = Fractal3D(
             noise_gen=noise_gen,
@@ -103,7 +104,6 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
                 h = self.noise.noise_octaves(*scaled_vert)
 
                 if self.mask:
-                    # Since 0.5 is added within the noise generation method, an adjustment of 0.5 is made here.
                     if (center := self.mask.get_center(vertex)) and \
                             (grad := self.mask.get_gradient(scaled_vert, center)) < h - 0.5:
                         h -= grad

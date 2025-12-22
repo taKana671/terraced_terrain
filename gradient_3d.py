@@ -19,6 +19,16 @@ class Gradient3D:
         return 1 * dist_to_center
 
 
+class GradientFlat(Gradient3D):
+
+    def __init__(self, max_length, gradient_size, center):
+        super().__init__(max_length, gradient_size)
+        self.center = center
+
+    def get_gradient(self, vert):
+        return super().get_gradient(vert, self.center)
+
+
 class GradientSphere(Gradient3D):
 
     def __init__(self, vert_value, bound, n_center, s_center, max_length, gradient_size):
