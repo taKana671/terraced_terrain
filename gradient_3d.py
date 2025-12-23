@@ -4,7 +4,13 @@ from panda3d.core import Point3
 
 
 class Gradient3D:
-
+    """A class to generate a circular gradient centered
+        Args:
+            max_length (float):
+                The length of the longer side between the vertical and horizontal sides
+            gradient_size (float):
+                The larger the gradient_size, the smaller the circle of the gradient become.
+    """
     def __init__(self, max_length, gradient_size):
         self.max_length = max_length
         self.gradient_size = gradient_size
@@ -55,6 +61,16 @@ class GradientSphere(Gradient3D):
 
 
 class GradientSphereNESW(GradientSphere):
+    """A class to generate a circular gradient centered on the bottom-left
+       and top-right corners of the cube.
+        Args:
+            vert_value (float): The values of cube's vertices.
+            bound (float): Area for gradients.
+            max_length (float):
+                The length of the longer side between the vertical and horizontal sides.
+            gradient_size (float):
+                The larger the gradient_size, the smaller the circle of the gradient become.
+    """
 
     def __init__(self, vert_value, bound, max_length=100, gradient_size=4):
         super().__init__(
@@ -100,6 +116,16 @@ class GradientSphereNESW(GradientSphere):
 
 
 class GradientSphereNWSE(GradientSphere):
+    """A class to generate a circular gradient centered on the bottom-right
+       and top-left corners of the cube.
+        Args:
+            vert_value (float): The values of cube's vertices.
+            bound (float): Area for gradients.
+            max_length (float):
+                The length of the longer side between the vertical and horizontal sides.
+            gradient_size (float):
+                The larger the gradient_size, the smaller the circle of the gradient become.
+    """
 
     def __init__(self, vert_value, bound, max_length=100, gradient_size=4):
         super().__init__(
