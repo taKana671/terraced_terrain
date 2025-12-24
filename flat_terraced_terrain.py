@@ -4,16 +4,17 @@ import random
 
 from panda3d.core import Vec3, Point3
 
+from .gradient_3d import GradientFlat
 from .terraced_terrain import FlatTerracedTerrainMixin
-from .themes import themes, Island
-from mask.radial_gradient_generator import RadialGradientMask
+from .themes.themes import themes_flat
+from .themes.flat_themes import Island
 from noise import SimplexNoise, PerlinNoise, CellularNoise
 from noise import Fractal2D
 from shapes.spherical_polyhedron import TriangleGenerator
 
 
 class FlatTerracedTerrain(FlatTerracedTerrainMixin, TriangleGenerator):
-    """A class to generate a terraced terrain.
+    """A class to generate a terraced terrain.f
         Args:
             noise (func): Function that generates noise.
             noise_scale (float): The smaller this value is, the more sparse the noise becomes.
@@ -47,7 +48,7 @@ class FlatTerracedTerrain(FlatTerracedTerrainMixin, TriangleGenerator):
         self.noise_scale = noise_scale
         self.segs_c = segs_c
         self.radius = radius
-        self.theme = themes.get(theme.lower())
+        self.theme = themes_flat.get(theme.lower())
 
         self.noise = Fractal2D(
             noise_gen=noise_gen,
@@ -135,9 +136,9 @@ class FlatTerracedTerrain(FlatTerracedTerrainMixin, TriangleGenerator):
                     y = (vertex.y + offset_y) * self.noise_scale
                     h = self.noise.noise_octaves(x, y)
 
-                    if self.theme == Island:
-                        r, _, _ = self.mask.get_gradient(vertex.x, vertex.y)
-                        h = 0.02 if r >= h else h - r
+                    if self.mask:
+                        grad = self.mask.get_gradient(vertex)
+                        h = 0.02 if grad >= h else h - grad
                     else:
                         if h <= self.theme.LAYER_01.threshold:
                             h = self.theme.LAYER_01.threshold
@@ -151,10 +152,7 @@ class FlatTerracedTerrain(FlatTerracedTerrainMixin, TriangleGenerator):
         return vertex_cnt
 
     def get_geom_node(self):
-        if self.theme == Island:
-            self.mask = RadialGradientMask(
-                height=self.radius, width=self.radius, center_h=0, center_w=0)
-
+        self.mask = GradientFlat(self.radius, 2, Point3()) if self.theme == Island else None
         vdata_values = array.array('f', [])
         prim_indices = array.array('I', [])
         vertex_cnt = 0

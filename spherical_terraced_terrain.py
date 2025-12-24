@@ -3,8 +3,10 @@ import random
 
 from panda3d.core import Vec3
 
+from .gradient_3d import GradientSphereNESW, GradientSphereNWSE
 from .terraced_terrain import SphericalTerracedTerrainMixin
-from .themes import themes
+from .themes.themes import themes_sphere
+from .themes.sphere_themes import Island
 from noise import SimplexNoise, PerlinNoise, CellularNoise, Fractal3D
 from shapes import Cubesphere
 
@@ -39,10 +41,7 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
                  ):
         super().__init__(max_depth, terrain_scale)
         self.noise_scale = noise_scale
-
-        if (theme_name := theme.lower()) == 'island':
-            raise ValueError("Island is only for flat terraced terrain at this time.")
-        self.theme = themes.get(theme_name)
+        self.theme = themes_sphere.get(theme.lower())
 
         self.noise = Fractal3D(
             noise_gen=noise_gen,
@@ -94,13 +93,25 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
     def create_terraced_terrain(self, vertex_cnt, vdata_values, prim_indices):
         offset = Vec3(*[random.uniform(-1000, 1000) for _ in range(3)])
 
+        if self.mask:
+            self.mask.n_center = (self.mask.n_center + offset) * self.noise_scale
+            self.mask.s_center = (self.mask.s_center + offset) * self.noise_scale
+
         for subdiv_face in self.generate_triangles():
             vertices = []
             for vertex in subdiv_face:
-                scaled_verts = (vertex + offset) * self.noise_scale
+                scaled_vert = (vertex + offset) * self.noise_scale
+                h = self.noise.noise_octaves(*scaled_vert)
 
-                if (h := self.noise.noise_octaves(*scaled_verts)) < self.theme.LAYER_01.threshold:
-                    h = self.theme.LAYER_01.threshold
+                if self.mask:
+                    if (center := self.mask.get_center(vertex)) and \
+                            (grad := self.mask.get_gradient(scaled_vert, center)) < h - 0.5:
+                        h -= grad
+                    else:
+                        h = 0.52
+                else:
+                    if h < self.theme.LAYER_01.threshold:
+                        h = self.theme.LAYER_01.threshold
 
                 normalized_vert = vertex.normalized()
                 vert = normalized_vert * (1 + h)
@@ -111,7 +122,17 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
 
         return vertex_cnt
 
+    def create_mask(self):
+        mask = GradientSphereNESW if random.random() >= 0.5 else GradientSphereNWSE
+
+        return mask(
+            vert_value=Cubesphere.vertex_value,
+            bound=0.57
+        )
+
     def get_geom_node(self):
+        self.mask = self.create_mask() if self.theme == Island else None
+
         vdata_values = array.array('f', [])
         prim_indices = array.array('I', [])
         vertex_cnt = 0
