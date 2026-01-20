@@ -202,12 +202,13 @@ class SphericalTerracedTerrainMixin(TerracedTerrainMixin):
         return self.theme.color(thresh - 1)
 
     def create_triangle_vertices(self, vertices, color_thresh, vdata_values):
+        uvs = [self.calc_uv(vert.normalized()) for vert in vertices]
+        self.fix_uv(uvs)
         color = self.get_color(color_thresh)
 
-        for vert in vertices:
+        for vert, uv in zip(vertices, uvs):
             vertex = vert * self.scale
             normal = vert.normalized()
-            uv = self.calc_uv(normal)
 
             vdata_values.extend([*vertex, *color, *normal, *uv])
 
@@ -215,11 +216,30 @@ class SphericalTerracedTerrainMixin(TerracedTerrainMixin):
         color = self.get_color(color_thresh)
         normal = self.calculate_quad_normal(vertices) if wall else None
 
-        for vert in vertices:
+        uvs = [self.calc_uv(vert.normalized()) for vert in vertices]
+        self.fix_uv(uvs)
+
+        for vert, uv in zip(vertices, uvs):
             if not wall:
                 normal = vert.normalized()
 
             vertex = vert * self.scale
-            uv = self.calc_uv(vertex.normalized())
-
             vdata_values.extend([*vertex, *color, *normal, *uv])
+
+    def fix_uv(self, uvs):
+        """recalculate the UV to prevent ziggzagging distortion effects.
+            Args:
+                uvs (list):
+                    Contains three or four Point2 instances.
+                    UV coordinates, calculated by the self.calc_uv, for each vertex of the triangle.
+        """
+        if len(uvs) == 4:
+            _, uv_b, uv_c, uv_d = uvs
+
+            if uv_d.x - uv_c.x > 0.5:
+                uv_d.x -= 1
+
+            if uv_d.y == 0 or uv_d.y == 1:
+                uv_d.x = (uv_b.x + uv_c.x) / 2
+
+        super().fix_uv(*uvs[:3])
