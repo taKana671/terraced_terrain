@@ -160,6 +160,6 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, SphericalPolyhedro
         vertex_cnt += self.create_terraced_terrain(vertex_cnt, vdata_values, prim_indices)
         # create a geom node.
         geom_node = self.create_geom_node(
-            vertex_cnt, vdata_values, prim_indices, 'spherical_terraced_terrain')
+            vertex_cnt, vdata_values, prim_indices, self.__class__.__name__.lower())
 
         return geom_node
