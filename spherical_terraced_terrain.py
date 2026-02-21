@@ -1,17 +1,18 @@
 import array
 import random
+from functools import reduce
 
-from panda3d.core import Vec3
+from panda3d.core import Vec3, Point3
 
 from .gradient_3d import GradientSphereNESW, GradientSphereNWSE
 from .terraced_terrain import SphericalTerracedTerrainMixin
 from .themes.themes import themes_sphere
 from .themes.sphere_themes import Island
 from noise import SimplexNoise, PerlinNoise, CellularNoise, Fractal3D
-from shapes import Cubesphere
+from shapes.spherical_polyhedron import SphericalPolyhedron
 
 
-class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
+class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, SphericalPolyhedron):
     """A class to generate a terraced terrain.
         Args:
             noise_gen (func): Function that generates noise.
@@ -26,6 +27,16 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
             lacunarity (float): At the end of each iteration, the frequency is increased by multiplying itself by lacunarity, greater than 1.
             theme (str): one of "mountain", "snow" and "desert".
     """
+
+    vert_value = 0.57735027
+    cube_faces = [
+        [[-1, -1, 1], [-1, 1, 1], [-1, 1, -1], [-1, -1, -1]],
+        [[-1, -1, 1], [-1, -1, -1], [1, -1, -1], [1, -1, 1]],
+        [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]],
+        [[-1, 1, 1], [1, 1, 1], [1, 1, -1], [-1, 1, -1]],
+        [[1, 1, 1], [1, -1, 1], [1, -1, -1], [1, 1, -1]],
+        [[-1, -1, -1], [-1, 1, -1], [1, 1, -1], [1, -1, -1]]
+    ]
 
     def __init__(self,
                  noise_gen,
@@ -97,7 +108,7 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
             self.mask.n_center = (self.mask.n_center + offset) * self.noise_scale
             self.mask.s_center = (self.mask.s_center + offset) * self.noise_scale
 
-        for subdiv_face in self.generate_triangles():
+        for subdiv_face in self.generate_divided_tri():
             vertices = []
             for vertex in subdiv_face:
                 scaled_vert = (vertex + offset) * self.noise_scale
@@ -126,9 +137,18 @@ class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, Cubesphere):
         mask = GradientSphereNESW if random.random() >= 0.5 else GradientSphereNWSE
 
         return mask(
-            vert_value=Cubesphere.vertex_value,
+            vert_value=self.vert_value,
             bound=0.57
         )
+
+    def generate_triangles(self):
+        for face in self.cube_faces:
+            face_pts = [Point3(*pts) * self.vert_value for pts in face]
+            center = reduce(lambda x, y: x + y, face_pts, Point3()) / 4
+
+            for p1, p2 in zip(face_pts, face_pts[1:] + face_pts[:1]):
+                tri = [p1, p2, center]
+                yield tri
 
     def get_geom_node(self):
         self.mask = self.create_mask() if self.theme == Island else None
