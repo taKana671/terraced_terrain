@@ -11,9 +11,10 @@ from .themes.flat_themes import Island
 from noise import SimplexNoise, PerlinNoise, CellularNoise
 from noise import Fractal2D
 from shapes.spherical_polyhedron import TriangleGenerator
+from shapes.create_geometry import ProceduralGeometry
 
 
-class FlatTerracedTerrain(FlatTerracedTerrainMixin, TriangleGenerator):
+class FlatTerracedTerrain(FlatTerracedTerrainMixin, TriangleGenerator, ProceduralGeometry):
     """A class to generate a terraced terrain.f
         Args:
             noise (func): Function that generates noise.
@@ -43,7 +44,7 @@ class FlatTerracedTerrain(FlatTerracedTerrainMixin, TriangleGenerator):
                  frequency=0.055,
                  theme='mountain'
                  ):
-        super().__init__(max_depth)
+        self.max_depth = max_depth
         self.center = Point3(0, 0, 0)
         self.noise_scale = noise_scale
         self.segs_c = segs_c
@@ -128,7 +129,9 @@ class FlatTerracedTerrain(FlatTerracedTerrainMixin, TriangleGenerator):
         offset_y = random.uniform(-1000, 1000)
 
         for p1, p2 in self.generate_base_polygon():
-            for subdiv_face in self.subdivide([p1, p2, self.center]):
+            tri = [p1, p2, self.center]
+
+            for subdiv_face in self.subdivide(tri, self.max_depth):
                 vertices = []
 
                 for vertex in subdiv_face:
@@ -161,6 +164,6 @@ class FlatTerracedTerrain(FlatTerracedTerrainMixin, TriangleGenerator):
 
         # create a geom node.
         geom_node = self.create_geom_node(
-            vertex_cnt, vdata_values, prim_indices, 'flat_terraced_terrain')
+            vertex_cnt, vdata_values, prim_indices, self.__class__.__name__.lower())
 
         return geom_node
