@@ -9,7 +9,7 @@ from .terraced_terrain import SphericalTerracedTerrainMixin
 from .themes.themes import themes_sphere
 from .themes.sphere_themes import Island
 from noise import SimplexNoise, PerlinNoise, CellularNoise, Fractal3D
-from shapes.spherical_polyhedron import SphericalPolyhedron
+from shapes.polyhedron import SphericalPolyhedron
 
 
 class SphericalTerracedTerrain(SphericalTerracedTerrainMixin, SphericalPolyhedron):
