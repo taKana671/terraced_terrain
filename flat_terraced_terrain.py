@@ -10,7 +10,7 @@ from .themes.themes import themes_flat
 from .themes.flat_themes import Island
 from noise import SimplexNoise, PerlinNoise, CellularNoise
 from noise import Fractal2D
-from shapes.spherical_polyhedron import TriangleGenerator
+from shapes.polyhedron import TriangleGenerator
 from shapes.create_geometry import ProceduralGeometry
 
 
